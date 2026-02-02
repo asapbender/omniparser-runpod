@@ -1,0 +1,8 @@
+runpod
+torch
+torchvision
+ultralytics
+timm
+transformers
+pillow
+numpy
