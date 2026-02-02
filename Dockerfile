@@ -1,40 +1,29 @@
-FROM python:3.11-slim
+FROM runpod/base:0.6.3-cuda11.8.0
 
-RUN echo "=== Step 1: Installing system dependencies ===" && \
-    apt-get update && apt-get install -y \
-    git \
+# Set python3.11 as the default python
+RUN ln -sf $(which python3.11) /usr/local/bin/python && \
+    ln -sf $(which python3.11) /usr/local/bin/python3
+
+# Install system dependencies for OpenCV
+RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/* && \
-    echo "=== Step 1: DONE ==="
+    && rm -rf /var/lib/apt/lists/*
 
+# Install Python dependencies
+COPY requirements.txt /requirements.txt
+RUN pip install --upgrade -r /requirements.txt --no-cache-dir
+
+# Clone OmniParser and download weights
+RUN git clone https://github.com/microsoft/OmniParser.git /app
 WORKDIR /app
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN echo "=== Step 2: Cloning OmniParser ===" && \
-    git clone https://github.com/microsoft/OmniParser.git . && \
-    echo "=== Step 2: DONE ==="
+# Download model weights
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='microsoft/OmniParser-v2.0', local_dir='weights')"
+RUN mv weights/icon_caption weights/icon_caption_florence
 
-RUN echo "=== Step 3: Installing PyTorch ===" && \
-    pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121 && \
-    echo "=== Step 3: DONE ==="
+# Copy handler
+COPY handler.py /app/handler.py
 
-RUN echo "=== Step 4: Installing requirements ===" && \
-    pip install --no-cache-dir -r requirements.txt && \
-    echo "=== Step 4: DONE ==="
-
-RUN echo "=== Step 5: Installing runpod ===" && \
-    pip install --no-cache-dir runpod && \
-    echo "=== Step 5: DONE ==="
-
-RUN echo "=== Step 6: Downloading weights ===" && \
-    python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='microsoft/OmniParser-v2.0', local_dir='weights')" && \
-    echo "=== Step 6: DONE ==="
-
-RUN echo "=== Step 7: Renaming folder ===" && \
-    mv weights/icon_caption weights/icon_caption_florence && \
-    echo "=== Step 7: DONE ==="
-
-COPY handler.py .
-RUN echo "=== Step 8: Handler copied ==="
-
-CMD ["python", "-u", "handler.py"]
+CMD ["python", "-u", "/app/handler.py"]
