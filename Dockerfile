@@ -1,5 +1,4 @@
-# Use RunPod's stable base image
-FROM runpod/base:0.6.2-cuda12.2.0
+FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -8,30 +7,22 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
 # Clone official OmniParser V2 code
 RUN git clone https://github.com/microsoft/OmniParser.git .
 
-# Install PyTorch with CUDA support first
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121
-
-# Install dependencies from OmniParser requirements
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install runpod handler
 RUN pip install --no-cache-dir runpod
 
 # Download V2 Weights
-RUN pip install --no-cache-dir huggingface_hub && \
-    python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='microsoft/OmniParser-v2.0', local_dir='weights')"
+RUN python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='microsoft/OmniParser-v2.0', local_dir='weights')"
 
-# V2 requires the caption folder to be named 'icon_caption_florence'
+# Rename caption folder for V2
 RUN mv weights/icon_caption weights/icon_caption_florence
 
-# Copy your RunPod handler (overwrites any existing handler.py)
+# Copy handler
 COPY handler.py .
 
-# Start the worker
 CMD ["python", "-u", "handler.py"]
