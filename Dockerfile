@@ -1,5 +1,5 @@
-# Use a GPU-optimized base image
-FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+# Use RunPod's stable base image
+FROM runpod/base:0.6.2-cuda12.2.0
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -14,17 +14,18 @@ WORKDIR /app
 # Clone official OmniParser V2 code
 RUN git clone https://github.com/microsoft/OmniParser.git .
 
+# Install PyTorch with CUDA support first
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
 # Install dependencies from OmniParser requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install runpod handler
 RUN pip install --no-cache-dir runpod
 
-# Install flash-attn for better Florence-2 performance (optional but recommended)
-RUN pip install --no-cache-dir flash-attn --no-build-isolation || true
-
 # Download V2 Weights
-RUN huggingface-cli download microsoft/OmniParser-v2.0 --local-dir weights
+RUN pip install --no-cache-dir huggingface_hub && \
+    python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='microsoft/OmniParser-v2.0', local_dir='weights')"
 
 # V2 requires the caption folder to be named 'icon_caption_florence'
 RUN mv weights/icon_caption weights/icon_caption_florence
