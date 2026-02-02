@@ -1,6 +1,5 @@
-FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+FROM python:3.11-slim
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
     libgl1-mesa-glx \
@@ -9,20 +8,22 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Clone official OmniParser V2 code
+# Clone OmniParser
 RUN git clone https://github.com/microsoft/OmniParser.git .
+
+# Install PyTorch with CUDA
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir runpod
 
-# Download V2 Weights
-RUN python3 -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='microsoft/OmniParser-v2.0', local_dir='weights')"
+# Download weights
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='microsoft/OmniParser-v2.0', local_dir='weights')"
 
-# Rename caption folder for V2
+# Rename for V2
 RUN mv weights/icon_caption weights/icon_caption_florence
 
-# Copy handler
 COPY handler.py .
 
 CMD ["python", "-u", "handler.py"]
